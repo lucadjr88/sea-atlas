@@ -1,0 +1,9 @@
+node_modules/
+rpc-pool-complete.json
+.env
+.env.*
+*.pem
+*.key
+*.p12
+__pycache__/
+*.py[cod]

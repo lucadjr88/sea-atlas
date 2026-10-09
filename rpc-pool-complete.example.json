@@ -1,0 +1,12 @@
+[
+  {
+    "name": "solana-main",
+    "url": "https://api.mainnet-beta.solana.com",
+    "ws": "wss://api.mainnet-beta.solana.com",
+    "maxConcurrent": 5,
+    "cooldownMs": 60000,
+    "backoffBaseMs": 1000,
+    "plrProfile_total": 0,
+    "plrProfile_success": 0
+  }
+]

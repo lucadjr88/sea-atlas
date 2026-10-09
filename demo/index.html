@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<title>Demo: nave che naviga in circolo</title>
+<style>
+  html, body { margin: 0; padding: 0; background: #0b3d59; overflow: hidden; }
+  canvas { display: block; margin: 0 auto; }
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+<script>
+  const WIDTH = 640;
+  const HEIGHT = 640;
+
+  // Dimensioni del tile isometrico originale di Caesar3/Augustus (Water_C.png è 58x30)
+  const TILE_W = 58;
+  const TILE_H = 30;
+  const STEPS_PER_SIDE = 4; // lunghezza di ogni lato del percorso, in celle 1x1
+  const STEP_INTERVAL = 350; // ms per ogni singola cella percorsa
+
+  // Sprite reali della nave (cargo boat) estratte da Augustus, una per ognuna delle 8 direzioni isometriche
+  const DIRECTIONS = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
+
+  // Vettori di spostamento in coordinate di griglia (col,row) per ciascuna delle 8 direzioni
+  // isometriche. La proiezione a schermo è x=(col-row)*TILE_W/2, y=(col+row)*TILE_H/2.
+  const GRID_DELTA = {
+    E:  { col: 1, row: -1 },
+    SE: { col: 1, row: 0 },
+    S:  { col: 1, row: 1 },
+    SW: { col: 0, row: 1 },
+    W:  { col: -1, row: 1 },
+    NW: { col: -1, row: 0 },
+    N:  { col: -1, row: -1 },
+    NE: { col: 0, row: -1 }
+  };
+
+  let ship;
+  let coordText;
+  let cells = [];       // sequenza di celle (col,row interi) del percorso ad anello
+  let cellIndex = 0;
+  let timeSinceStep = 0;
+
+  function preload() {
+    this.load.image('water', 'assets/Water_C.png');
+    DIRECTIONS.forEach(dir => {
+      this.load.image('ship_' + dir, 'assets/ships/Cargo_Boat_' + dir + '_01.png');
+    });
+  }
+
+  function gridToScreen(col, row) {
+    return {
+      x: WIDTH / 2 + (col - row) * (TILE_W / 2),
+      y: HEIGHT / 2 + (col + row) * (TILE_H / 2)
+    };
+  }
+
+  function buildLoopPath() {
+    // Sequenza di celle 1x1: per ogni direzione si avanza di un passo alla volta,
+    // così la nave si sposta sempre esattamente di 1 cella per movimento.
+    const raw = [{ col: 0, row: 0, dir: DIRECTIONS[0] }];
+    let col = 0, row = 0;
+    DIRECTIONS.forEach(dir => {
+      const d = GRID_DELTA[dir];
+      for (let i = 0; i < STEPS_PER_SIDE; i++) {
+        col += d.col;
+        row += d.row;
+        raw.push({ col, row, dir });
+      }
+    });
+    raw.pop(); // l'ultima cella coincide con la prima (percorso chiuso)
+
+    // ricentra il percorso in modo che il centro della mappa sia la cella intera (0,0)
+    const cols = raw.map(p => p.col);
+    const rows = raw.map(p => p.row);
+    const colOffset = Math.round((Math.min(...cols) + Math.max(...cols)) / 2);
+    const rowOffset = Math.round((Math.min(...rows) + Math.max(...rows)) / 2);
+    return raw.map(p => ({ col: p.col - colOffset, row: p.row - rowOffset, dir: p.dir }));
+  }
+
+  function create() {
+    // sfondo marino piastrellato con la texture originale del gioco
+    this.add.tileSprite(0, 0, WIDTH, HEIGHT, 'water').setOrigin(0, 0);
+
+    cells = buildLoopPath();
+
+    // traccia del percorso, per riferimento visivo: una cella 1x1 per ogni punto
+    const path = this.add.graphics();
+    path.lineStyle(2, 0xffffff, 0.35);
+    path.beginPath();
+    const first = gridToScreen(cells[0].col, cells[0].row);
+    path.moveTo(first.x, first.y);
+    cells.slice(1).forEach(c => {
+      const p = gridToScreen(c.col, c.row);
+      path.lineTo(p.x, p.y);
+    });
+    path.lineTo(first.x, first.y);
+    path.strokePath();
+
+    const start = gridToScreen(cells[0].col, cells[0].row);
+    ship = this.add.image(start.x, start.y, 'ship_' + DIRECTIONS[0]).setOrigin(0.5, 0.5);
+
+    coordText = this.add.text(10, 10, '', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#ffffff',
+      backgroundColor: '#00000080',
+      padding: { x: 6, y: 4 }
+    }).setScrollFactor(0);
+    updateCoordText();
+  }
+
+  function updateCoordText() {
+    const c = cells[cellIndex];
+    coordText.setText('col: ' + c.col + '  row: ' + c.row);
+  }
+
+  function update(time, delta) {
+    timeSinceStep += delta;
+    if (timeSinceStep < STEP_INTERVAL) return;
+    timeSinceStep -= STEP_INTERVAL;
+
+    cellIndex = (cellIndex + 1) % cells.length;
+    const c = cells[cellIndex];
+    const pos = gridToScreen(c.col, c.row);
+
+    ship.setPosition(pos.x, pos.y); // salto diretto di esattamente 1 cella, nessuna interpolazione
+    ship.setTexture('ship_' + c.dir);
+    updateCoordText();
+  }
+
+  new Phaser.Game({
+    type: Phaser.AUTO,
+    width: WIDTH,
+    height: HEIGHT,
+    backgroundColor: '#0b3d59',
+    scene: { preload, create, update }
+  });
+</script>
+</body>
+</html>
